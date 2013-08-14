@@ -91,14 +91,16 @@ let html_of_entry ?(want_date=true) read_file e =
    </div>
  >>
 
-let html_of_index read_file =
-  lwt body = read_file "index.md" in
+let html_of_file read_file f =
+  lwt body = read_file f in
   return <:xml<
     <div class="wiki_entry">
      <div class="wiki_entry_body">$body$</div>
    </div>
  >>
- 
+
+let html_of_index read_file = html_of_file read_file "index.md"
+     
 let entry_css = <:css<
   .wiki_entry {
     margin-bottom: 20px;
@@ -129,10 +131,12 @@ let entry_css = <:css<
       margin-left: 0px;
       margin-top: 3px;
       font-size: 1.1em;
+      ul { li { p { padding: 0; } } }
     }
   }
   .wiki_updates {
-     font-size: 0.8em;
+    font-size: 0.8em;
+    p { text-align: right; }
   }
 >>
 
@@ -279,7 +283,7 @@ let html_of_recent_updates entries =
   >>
 
 (* Main wiki page; disqus comments are for full entry pages *)
-let html_of_page ?disqus ~left_column ~right_column =
+let html_of_page ?disqus ?top_para ?right_column ~left_column ~sidebar =
 
   (* The disqus comment *)
   let disqus_html permalink = <:xml<
@@ -298,14 +302,25 @@ let html_of_page ?disqus ~left_column ~right_column =
 
   let dh = match disqus with
      | Some perm  -> disqus_html perm
-     | None      -> <:xml< >> in
+     | None      -> <:xml< >> 
+  in
+  let rc = match right_column with
+    | Some x -> x
+    | None   -> <:xml< >>
+  in  
+  lwt lc = left_column in
+  lwt top = match top_para with
+    | Some x -> x
+    | None   -> return (<:xml< >>)
+  in
 
-  lwt left_column = left_column in
   return <:xml<
     <div class="left_column_wiki">
-      <div class="summary_information">$left_column$</div>
+      $top$
+      <div class="left_column">$lc$</div>
+      <div class="right_column">$rc$</div>
     </div>
-    <div class="right_column_wiki">$right_column$</div>
+    <div class="right_column_wiki">$sidebar$</div>
     <div style="clear:both;"></div>
     <h2>Comments</h2>
     $dh$

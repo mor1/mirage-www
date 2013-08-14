@@ -17,14 +17,16 @@ let file_template f =
 
 let read_file f =
   try_lwt
-  let suffix =
-    try let n = String.rindex f '.' in
+    let suffix =
+      try
+        let n = String.rindex f '.' in
         String.sub f (n+1) (String.length f - n - 1)
-    with _ -> "" in
-  match suffix with
-    | "md"   -> file_template f >|= Markdown.of_string >|= Markdown.to_html 
-    | "html" -> file_template f >|= Html.of_string
-    | _      -> return []
+      with _ -> "" 
+    in
+    match suffix with
+      | "md"   -> file_template f >|= Markdown.of_string >|= Markdown.to_html 
+      | "html" -> file_template f >|= Html.of_string
+      | _      -> return []
   with exn -> 
     printf "Pages.read_file: exception %s\n%!" (Printexc.to_string exn);
     exit 1
@@ -40,12 +42,12 @@ let column_css = <:css<
   /* Column Styling */
   .left_column {
     float: left;
-    width: 475px;
+    width: 440px;
     text-align: justify;
   }
   .right_column {
     float: right;
-    width: 475px;
+    width: 400px;
   }
 >>
 
@@ -133,35 +135,37 @@ end
 module Wiki = struct
   open Wiki
 
-  (* the right column of wiki page is always the same *)
-  let right_column = Wiki.short_html_of_categories entries categories
+  let sidebar = Wiki.short_html_of_categories entries categories
 
   let read_file f = read_file ("/wiki/" ^ f)
 
   (* Make a full Html.t including RSS link and headers from an wiki page *)
-  let make ?title ?disqus left_column =
+  let make ?title ?disqus ?top_para ?right_column left_column =
     let url = sprintf "/wiki/atom.xml" in
     let extra_header = <:xml< 
      <link rel="alternate" type="application/atom+xml" href=$str:url$ />
     >> in
     let title = "wiki" ^ match title with 
-      |None -> "" |Some x -> " :: " ^ x in
-    let body = Wiki.html_of_page ?disqus ~left_column ~right_column in  
+      | Some x -> " :: " ^ x 
+      | None -> "" 
+    in
+    let body = Wiki.html_of_page ?disqus ?top_para ?right_column ~left_column ~sidebar in  
     Template.t ~extra_header "Wiki" title body >|= Html.to_string
 
   (* Main wiki page Html.t fragment with the index page *)
   let main_page =
-    lwt idx = Wiki.html_of_index read_file in
-    let idx2 = Wiki.html_of_recent_updates Wiki.entries in
-    let left_column = idx @ idx2 in
-    make ~title:"index" (return left_column)
+    let top = Wiki.html_of_file read_file "index-t.md" in
+    let idx = Wiki.html_of_index read_file in
+    let upd = Wiki.html_of_recent_updates Wiki.entries in
+    make ~title:"index" ~top_para:top ~right_column:upd idx
 
   let ent_bodies = Hashtbl.create 1
   let _ =
     List.iter (fun entry ->
       let title = entry.subject in
-      let left  = Wiki.html_of_entry read_file entry in
-      let body = make ~title ~disqus:entry.permalink left in
+      let top  = Wiki.html_of_entry read_file entry in
+      let empty = return <:xml< >> in
+      let body = make ~title ~disqus:entry.permalink ~top_para:top empty in
       Hashtbl.add ent_bodies entry.permalink body
     ) Wiki.entries
 
