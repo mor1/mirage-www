@@ -20,3 +20,4 @@ _build
 /src/make-fat1-image.sh
 /src/make-fat2-image.sh
 /src/mir-www
+/src/mir-mirage-www

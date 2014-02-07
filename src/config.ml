@@ -22,7 +22,6 @@ let tmpl = match mode with
   | `Fat    -> fat_ro "tmpl.img"
   | `Crunch -> crunch "../tmpl"
 
-
 let net =
   try match Sys.getenv "NET" with
     | "direct" -> `Direct
@@ -31,16 +30,16 @@ let net =
   with Not_found -> `Direct
 
 let dhcp =
-  try match Sys.getenv "DHCP" with
-    | "" -> false
-    | _  -> true
-  with Not_found -> false
+  try match Sys.getenv "ADDR" with
+    | "dhcp" -> `Dhcp
+    | "static" -> `Static
+  with Not_found -> `Static
 
 let stack console =
   match net, dhcp with
-  | `Direct, true  -> direct_stackv4_with_dhcp console tap0
-  | `Direct, false -> direct_stackv4_with_default_ipv4 console tap0
-  | `Socket, _     -> socket_stackv4 console [Ipaddr.V4.any]
+  | `Direct, `Dhcp   -> direct_stackv4_with_dhcp console tap0
+  | `Direct, `Static -> direct_stackv4_with_default_ipv4 console tap0
+  | `Socket, _       -> socket_stackv4 console [Ipaddr.V4.any]
 
 let server =
   http_server 80 (stack default_console)
@@ -48,10 +47,10 @@ let server =
 let main =
   let libraries = [ "cow.syntax"; "cowabloga" ] in
   let packages = [ "cow";"cowabloga" ] in
-  foreign ~libraries ~packages "Dispatch.Main"
+  foreign ~libraries ~packages "Unikernel.Main"
     (console @-> kv_ro @-> kv_ro @-> http @-> job)
 
 let () =
-  register "www" [
+  register "mirage-www" [
     main $ default_console $ fs $ tmpl $ server
   ]
